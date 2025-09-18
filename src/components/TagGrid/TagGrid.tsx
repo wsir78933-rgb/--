@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTags } from '@/hooks/useTags';
-import { Tag as TagIcon, MoreVertical, Edit2, Trash2, Star } from 'lucide-react';
+import { Tag as TagIcon, MoreVertical, Edit2, Trash2, Star, Hash, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TagGridProps {
@@ -17,29 +17,24 @@ interface ContextMenuProps {
   onDelete: (tag: string) => void;
 }
 
-// 获取标签的渐变色彩
-const getTagGradient = (tag: string): string => {
-  const gradients = [
-    'from-blue-400 to-blue-600',
-    'from-green-400 to-green-600',
-    'from-purple-400 to-purple-600',
-    'from-pink-400 to-pink-600',
-    'from-orange-400 to-orange-600',
-    'from-indigo-400 to-indigo-600',
-    'from-red-400 to-red-600',
-    'from-yellow-400 to-yellow-600',
-    'from-teal-400 to-teal-600',
-    'from-cyan-400 to-cyan-600',
-    'from-emerald-400 to-emerald-600',
-    'from-rose-400 to-rose-600',
-    'from-violet-400 to-violet-600',
-    'from-amber-400 to-amber-600',
-    'from-lime-400 to-lime-600'
+// 获取标签的颜色主题
+const getTagColor = (tag: string): { bg: string; text: string; border: string; hover: string } => {
+  const colors = [
+    { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-700', hover: 'hover:bg-blue-100 dark:hover:bg-blue-900/30' },
+    { bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-700', hover: 'hover:bg-green-100 dark:hover:bg-green-900/30' },
+    { bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-700', hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30' },
+    { bg: 'bg-pink-50 dark:bg-pink-900/20', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-200 dark:border-pink-700', hover: 'hover:bg-pink-100 dark:hover:bg-pink-900/30' },
+    { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-700', hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30' },
+    { bg: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-700', hover: 'hover:bg-indigo-100 dark:hover:bg-indigo-900/30' },
+    { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', border: 'border-red-200 dark:border-red-700', hover: 'hover:bg-red-100 dark:hover:bg-red-900/30' },
+    { bg: 'bg-yellow-50 dark:bg-yellow-900/20', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-200 dark:border-yellow-700', hover: 'hover:bg-yellow-100 dark:hover:bg-yellow-900/30' },
+    { bg: 'bg-teal-50 dark:bg-teal-900/20', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-200 dark:border-teal-700', hover: 'hover:bg-teal-100 dark:hover:bg-teal-900/30' },
+    { bg: 'bg-cyan-50 dark:bg-cyan-900/20', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-700', hover: 'hover:bg-cyan-100 dark:hover:bg-cyan-900/30' },
   ];
 
   const normalizedTag = tag.toLowerCase();
-  const index = normalizedTag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % gradients.length;
-  return gradients[index];
+  const index = normalizedTag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+  return colors[index];
 };
 
 function ContextMenu({ tag, x, y, onClose, onEdit, onDelete }: ContextMenuProps) {
@@ -116,12 +111,36 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">标签管理</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+            <Filter className="mr-2" size={20} />
+            标签筛选
+          </h2>
+          <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-            <div key={i} className="aspect-[4/3] rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        {/* 全部书签按钮加载状态 */}
+        <div className="w-full p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mr-3" />
+            <div className="space-y-2">
+              <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-3 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        {/* 标签列表加载状态 */}
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mr-3" />
+                <div className="space-y-2">
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -132,46 +151,54 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
-          <TagIcon className="mr-2" size={24} />
-          标签管理
+          <Filter className="mr-2" size={20} />
+          标签筛选
         </h2>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          共 {tags.length + 1} 个标签
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <TagIcon size={16} />
+          {tags.length} 个标签
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {/* 全部书签卡片 */}
-        <button
-          onClick={() => onSelectTag(null)}
-          className={cn(
-            "group relative aspect-[4/3] rounded-xl p-4 transition-all duration-200 hover:scale-105 hover:shadow-lg",
-            "bg-gradient-to-br from-gray-400 to-gray-600 text-white",
-            !selectedTag && "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900"
-          )}
-        >
-          <div className="absolute inset-0 bg-black/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-
-          <div className="relative h-full flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <Star size={20} className="text-white/80" />
-              {!selectedTag && (
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-              )}
-            </div>
-
-            <div>
-              <div className="text-lg font-semibold mb-1">全部书签</div>
-              <div className="text-sm text-white/80">
-                {tags.reduce((sum, tag) => sum + tag.count, 0)} 个收藏
-              </div>
+      {/* 全部书签按钮 */}
+      <button
+        onClick={() => onSelectTag(null)}
+        className={cn(
+          "w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all duration-200",
+          !selectedTag
+            ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+            : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+        )}
+      >
+        <div className="flex items-center">
+          <div className={cn(
+            "w-10 h-10 rounded-lg flex items-center justify-center mr-3",
+            !selectedTag
+              ? "bg-blue-100 dark:bg-blue-800/50"
+              : "bg-gray-100 dark:bg-gray-700"
+          )}>
+            <Star size={20} className={cn(
+              !selectedTag
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-600 dark:text-gray-400"
+            )} />
+          </div>
+          <div className="text-left">
+            <div className="font-medium text-gray-900 dark:text-white">全部收藏</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              查看所有 {tags.reduce((sum, tag) => sum + tag.count, 0)} 个收藏
             </div>
           </div>
-        </button>
+        </div>
+        {!selectedTag && (
+          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+        )}
+      </button>
 
-        {/* 标签卡片 */}
+      {/* 标签列表 */}
+      <div className="space-y-2">
         {tags.map((tagItem) => {
-          const gradient = getTagGradient(tagItem.name);
+          const colors = getTagColor(tagItem.name);
           const isSelected = selectedTag === tagItem.name;
 
           return (
@@ -180,49 +207,77 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
               onClick={() => onSelectTag(tagItem.name)}
               onContextMenu={(e) => handleContextMenu(e, tagItem.name)}
               className={cn(
-                "group relative aspect-[4/3] rounded-xl p-4 transition-all duration-200 hover:scale-105 hover:shadow-lg",
-                `bg-gradient-to-br ${gradient} text-white`,
-                isSelected && "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900"
+                "group w-full flex items-center justify-between p-3 rounded-lg border transition-all duration-200",
+                isSelected
+                  ? `${colors.bg} ${colors.border} ${colors.text} border-2`
+                  : `bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 ${colors.hover}`
               )}
             >
-              <div className="absolute inset-0 bg-black/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-
-              <div className="relative h-full flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                    <span className="text-lg font-bold">
-                      {tagItem.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-
-                  {isSelected && (
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                  )}
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleContextMenu(e, tagItem.name);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 w-6 h-6 bg-white/20 rounded-md flex items-center justify-center hover:bg-white/30 transition-all"
-                  >
-                    <MoreVertical size={14} />
-                  </button>
+              <div className="flex items-center min-w-0 flex-1">
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center mr-3 shrink-0",
+                  isSelected
+                    ? "bg-white/80 dark:bg-gray-900/50"
+                    : `${colors.bg}`
+                )}>
+                  <Hash size={16} className={cn(
+                    isSelected
+                      ? colors.text
+                      : colors.text
+                  )} />
                 </div>
-
-                <div>
-                  <div className="text-lg font-semibold mb-1 truncate" title={tagItem.name}>
+                <div className="text-left min-w-0 flex-1">
+                  <div className={cn(
+                    "font-medium truncate",
+                    isSelected
+                      ? colors.text
+                      : "text-gray-900 dark:text-white"
+                  )} title={tagItem.name}>
                     {tagItem.name}
                   </div>
-                  <div className="text-sm text-white/80">
+                  <div className={cn(
+                    "text-sm",
+                    isSelected
+                      ? "text-current opacity-75"
+                      : "text-gray-500 dark:text-gray-400"
+                  )}>
                     {tagItem.count} 个收藏
                   </div>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isSelected && (
+                  <div className="w-2 h-2 bg-current rounded-full" />
+                )}
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleContextMenu(e, tagItem.name);
+                  }}
+                  className={cn(
+                    "opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md flex items-center justify-center transition-all",
+                    isSelected
+                      ? "hover:bg-white/20"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <MoreVertical size={14} />
+                </button>
               </div>
             </button>
           );
         })}
       </div>
+
+      {tags.length === 0 && (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <TagIcon size={48} className="mx-auto mb-3 opacity-50" />
+          <p>暂无标签</p>
+          <p className="text-sm">开始添加一些收藏来创建标签吧</p>
+        </div>
+      )}
 
       {/* Context Menu */}
       {contextMenu && (
