@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#3B82F6" stroke="#1D4ED8" stroke-width="2"/>
+
+  <!-- Bookmark shape -->
+  <rect x="40" y="30" width="48" height="70" rx="4" ry="4" fill="white"/>
+
+  <!-- Star icon -->
+  <polygon points="64,45 67,55 78,55 69,62 72,72 64,66 56,72 59,62 50,55 61,55" fill="#FCD34D"/>
+
+  <!-- Text lines -->
+  <rect x="48" y="55" width="32" height="2" fill="#6B7280"/>
+  <rect x="48" y="60" width="28" height="2" fill="#6B7280"/>
+  <rect x="48" y="65" width="24" height="2" fill="#6B7280"/>
+  <rect x="48" y="70" width="30" height="2" fill="#6B7280"/>
+
+  <!-- Bookmark corner fold -->
+  <polygon points="40,85 64,85 64,95 52,88" fill="#E5E7EB"/>
+</svg>
