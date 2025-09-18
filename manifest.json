@@ -17,13 +17,8 @@
     "https://*/*"
   ],
 
-  "background": {
-    "service_worker": "dist/background/service-worker.js",
-    "type": "module"
-  },
-
   "action": {
-    "default_popup": "dist/popup/index.html",
+    "default_popup": "src/popup/index.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -33,15 +28,7 @@
     "default_title": "智能收藏助手"
   },
 
-  "options_page": "dist/options/index.html",
-
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["dist/content/content.js"],
-      "run_at": "document_idle"
-    }
-  ],
+  "options_page": "src/options/index.html",
 
   "icons": {
     "16": "icons/icon-16.png",
@@ -52,7 +39,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["dist/*", "icons/*"],
+      "resources": ["assets/*", "icons/*", "src/*"],
       "matches": ["<all_urls>"]
     }
   ]
