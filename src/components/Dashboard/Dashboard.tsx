@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bookmark, Tag } from '../../types';
+import { Bookmark } from '../../types';
 import { useBookmarks } from '../../hooks/useBookmarks';
 import { useTags } from '../../hooks/useTags';
 import { useStorage } from '../../hooks/useStorage';
@@ -7,7 +7,7 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { BookmarkList } from '../BookmarkList/BookmarkList';
 import { TagInput } from '../TagInput/TagInput';
 import { StorageManager } from '../../lib/storage';
-import { cn, formatDate } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 
 interface DashboardProps {
   className?: string;
@@ -39,7 +39,7 @@ export function Dashboard({ className }: DashboardProps) {
     getPopularTags
   } = useTags();
 
-  const { data: storageData } = useStorage();
+  const { data: _storageData } = useStorage();
 
   const [filteredBookmarks, setFilteredBookmarks] = useState<Bookmark[]>([]);
   const [isSearching, setIsSearching] = useState(false);

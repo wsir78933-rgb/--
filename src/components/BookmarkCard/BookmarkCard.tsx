@@ -1,4 +1,3 @@
-import React from 'react';
 import { Bookmark } from '@/types';
 import { Edit2, Trash2, ExternalLink, Calendar, Tag } from 'lucide-react';
 import { formatDate } from '@/lib/utils';

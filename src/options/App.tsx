@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BookmarkList } from '@/components/BookmarkList/BookmarkList';
 import { Dashboard } from '@/components/Dashboard/Dashboard';
 import { TagSidebar } from '@/components/TagSidebar/TagSidebar';
 import { ExportModal } from '@/components/ExportModal/ExportModal';
-import { Download, Settings, Moon, Sun } from 'lucide-react';
+import { Download, Moon, Sun } from 'lucide-react';
 
 export function OptionsApp() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export function OptionsApp() {
             />
           </div>
           <div className="lg:col-span-3">
-            <BookmarkList selectedTag={selectedTag} />
+            <BookmarkList bookmarks={[]} loading={false} onUpdate={async () => {}} onDelete={async () => {}} selectedTag={selectedTag} />
           </div>
         </div>
       </div>

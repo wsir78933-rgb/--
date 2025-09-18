@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, FileJson, FileText, FileSpreadsheet } from 'lucide-react';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { BookmarkExporter } from '@/lib/export';

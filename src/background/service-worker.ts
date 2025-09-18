@@ -68,7 +68,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 // Handle extension icon click
-chrome.action.onClicked.addListener(async (tab) => {
+chrome.action.onClicked.addListener(async (_tab) => {
   try {
     // This shouldn't be called if popup is set, but keeping it as fallback
     chrome.action.openPopup();
@@ -78,7 +78,7 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 // Handle messages from content scripts or popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   console.log('Background received message:', message);
 
   switch (message.type) {

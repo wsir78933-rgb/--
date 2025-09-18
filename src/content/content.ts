@@ -2,7 +2,7 @@
 console.log('Smart Bookmark Extension - Content Script Loaded');
 
 // 监听来自扩展的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.type === 'GET_PAGE_INFO') {
     // 获取页面信息
     const pageInfo = {

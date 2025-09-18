@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Bookmark } from '../../types';
 import { formatDate, cn } from '../../lib/utils';
 import { BookmarkForm } from '../BookmarkForm/BookmarkForm';
@@ -10,6 +10,7 @@ interface BookmarkListProps {
   onDelete: (id: string) => Promise<void>;
   emptyMessage?: string;
   className?: string;
+  selectedTag?: string | null;
 }
 
 export function BookmarkList({

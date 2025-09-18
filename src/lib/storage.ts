@@ -40,7 +40,7 @@ export class StorageManager {
   }
 
   private setupStorageListener(): void {
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+    chrome.storage.onChanged.addListener((_changes, namespace) => {
       if (namespace === 'local') {
         this.invalidateCache();
         this.getData().then(data => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Bookmark } from '../types';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useTags } from '../hooks/useTags';
@@ -34,7 +34,7 @@ export function PopupApp({ className }: PopupAppProps) {
   const {
     getTagNames,
     getPopularTags,
-    loading: tagsLoading
+    loading: _tagsLoading
   } = useTags();
 
   const {

@@ -1,6 +1,5 @@
-import React from 'react';
 import { useTags } from '@/hooks/useTags';
-import { Tag, Hash } from 'lucide-react';
+import { Tag as TagIcon, Hash } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TagSidebarProps {
@@ -9,7 +8,8 @@ interface TagSidebarProps {
 }
 
 export function TagSidebar({ selectedTag, onSelectTag }: TagSidebarProps) {
-  const { tags, loading } = useTags();
+  const { getTagList, loading } = useTags();
+  const tags = getTagList();
 
   if (loading) {
     return (
@@ -29,7 +29,7 @@ export function TagSidebar({ selectedTag, onSelectTag }: TagSidebarProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
       <h2 className="text-lg font-semibold mb-4 flex items-center">
-        <Tag className="mr-2" size={20} />
+        <TagIcon className="mr-2" size={20} />
         标签筛选
       </h2>
 
@@ -44,20 +44,20 @@ export function TagSidebar({ selectedTag, onSelectTag }: TagSidebarProps) {
       </button>
 
       <div className="space-y-1">
-        {tags.map(tag => (
+        {tags.map((tagItem) => (
           <button
-            key={tag.id}
-            onClick={() => onSelectTag(tag.name)}
+            key={tagItem.id}
+            onClick={() => onSelectTag(tagItem.name)}
             className={cn(
               "w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center",
-              selectedTag === tag.name && "bg-blue-50 dark:bg-blue-900/20 text-blue-600"
+              selectedTag === tagItem.name && "bg-blue-50 dark:bg-blue-900/20 text-blue-600"
             )}
           >
             <span className="flex items-center">
               <Hash size={14} className="mr-1" />
-              {tag.name}
+              {tagItem.name}
             </span>
-            <span className="text-sm text-gray-500">{tag.count}</span>
+            <span className="text-sm text-gray-500">{tagItem.count}</span>
           </button>
         ))}
       </div>
