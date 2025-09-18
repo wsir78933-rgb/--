@@ -192,6 +192,9 @@ export function BookmarkForm({
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           标签
+          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+            (点击下拉箭头选择预设标签，或直接输入新标签)
+          </span>
         </label>
         <TagInput
           tags={formData.tags}
@@ -200,31 +203,36 @@ export function BookmarkForm({
           onTagAdd={handleTagAdd}
           onTagRemove={handleTagRemove}
           disabled={isDisabled}
-          placeholder="添加标签..."
+          placeholder="点击右侧箭头选择标签或直接输入..."
         />
       </div>
 
-      {/* Popular Tags Suggestions */}
+      {/* Popular Tags Quick Select */}
       {popularTags.length > 0 && (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            推荐标签
+            快速选择常用标签
           </label>
           <div className="flex flex-wrap gap-2">
-            {popularTags.map(tag => (
+            {popularTags.slice(0, 8).map(tag => (
               <button
                 key={tag}
                 type="button"
                 onClick={() => handleTagAdd(tag)}
                 disabled={isDisabled || formData.tags.includes(tag)}
                 className={cn(
-                  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors',
+                  'inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200',
                   formData.tags.includes(tag)
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 cursor-default'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600',
+                    ? 'bg-blue-500 text-white cursor-default transform scale-95'
+                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-gray-600 hover:scale-105',
                   isDisabled && 'opacity-50 cursor-not-allowed'
                 )}
               >
+                {formData.tags.includes(tag) && (
+                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
                 {tag}
               </button>
             ))}

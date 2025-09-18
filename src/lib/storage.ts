@@ -1,5 +1,5 @@
 import { Bookmark, Tag, StorageData } from '../types';
-import { generateId, normalizeTag } from './utils';
+import { generateId, normalizeTag, DEFAULT_TAGS } from './utils';
 
 export class StorageManager {
   private static instance: StorageManager;
@@ -23,9 +23,21 @@ export class StorageManager {
   private async initializeStorage(): Promise<void> {
     const data = await this.storage.get(null);
     if (!data.bookmarks || !data.tags || !data.settings) {
+      // 创建预设标签
+      const defaultTagsData: Record<string, Tag> = {};
+      DEFAULT_TAGS.forEach(tagName => {
+        const normalizedTag = normalizeTag(tagName);
+        defaultTagsData[normalizedTag] = {
+          id: generateId(),
+          name: tagName,
+          count: 0,
+          createdAt: new Date().toISOString()
+        };
+      });
+
       const initialData: StorageData = {
         bookmarks: [],
-        tags: {},
+        tags: defaultTagsData,
         settings: {
           version: '1.0.0',
           theme: 'auto',
@@ -36,6 +48,25 @@ export class StorageManager {
       this.cache = initialData;
     } else {
       this.cache = data as StorageData;
+
+      // 检查并添加缺失的预设标签
+      let needsUpdate = false;
+      DEFAULT_TAGS.forEach(tagName => {
+        const normalizedTag = normalizeTag(tagName);
+        if (!this.cache!.tags[normalizedTag]) {
+          this.cache!.tags[normalizedTag] = {
+            id: generateId(),
+            name: tagName,
+            count: 0,
+            createdAt: new Date().toISOString()
+          };
+          needsUpdate = true;
+        }
+      });
+
+      if (needsUpdate) {
+        await this.storage.set(this.cache);
+      }
     }
   }
 
