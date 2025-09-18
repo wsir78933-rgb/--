@@ -1,20 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTags } from '@/hooks/useTags';
-import { Tag as TagIcon, MoreVertical, Edit2, Trash2, Star, Hash, Filter } from 'lucide-react';
+import { useBookmarks } from '@/hooks/useBookmarks';
+import { Tag as TagIcon, Edit2, Trash2, Star, Hash, Filter, GripVertical, X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface TagGridProps {
   selectedTag: string | null;
   onSelectTag: (tag: string | null) => void;
-}
-
-interface ContextMenuProps {
-  tag: string;
-  x: number;
-  y: number;
-  onClose: () => void;
-  onEdit: (tag: string) => void;
-  onDelete: (tag: string) => void;
 }
 
 // 获取标签的颜色主题
@@ -37,74 +30,138 @@ const getTagColor = (tag: string): { bg: string; text: string; border: string; h
   return colors[index];
 };
 
-function ContextMenu({ tag, x, y, onClose, onEdit, onDelete }: ContextMenuProps) {
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40"
-        onClick={onClose}
-      />
-
-      {/* Menu */}
-      <div
-        className="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[120px]"
-        style={{ left: x, top: y }}
-      >
-        <button
-          onClick={() => {
-            onEdit(tag);
-            onClose();
-          }}
-          className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
-        >
-          <Edit2 size={14} className="mr-2" />
-          编辑
-        </button>
-        <button
-          onClick={() => {
-            onDelete(tag);
-            onClose();
-          }}
-          className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center text-red-600 dark:text-red-400"
-        >
-          <Trash2 size={14} className="mr-2" />
-          删除
-        </button>
-      </div>
-    </>
-  );
-}
-
 export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
-  const { getTagList, loading } = useTags();
-  const [contextMenu, setContextMenu] = useState<{
-    tag: string;
-    x: number;
-    y: number;
-  } | null>(null);
+  const { getTagList, loading, reload: reloadTags } = useTags();
+  const { bookmarks, updateBookmark, reload: reloadBookmarks } = useBookmarks();
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [draggedTag, setDraggedTag] = useState<string | null>(null);
+  const [dragOverTag, setDragOverTag] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const tags = getTagList();
 
-  const handleContextMenu = (e: React.MouseEvent, tag: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    setContextMenu({
-      tag,
-      x: e.clientX,
-      y: e.clientY
-    });
-  };
-
   const handleEdit = (tag: string) => {
-    // TODO: 实现编辑功能
-    console.log('编辑标签:', tag);
+    setEditingTag(tag);
+    setEditValue(tag);
+    setTimeout(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    }, 0);
   };
 
-  const handleDelete = (tag: string) => {
-    // TODO: 实现删除功能
-    console.log('删除标签:', tag);
+  const handleSaveEdit = async () => {
+    if (!editingTag || !editValue.trim() || editValue.trim() === editingTag) {
+      setEditingTag(null);
+      return;
+    }
+
+    const newTagName = editValue.trim();
+
+    // 检查新标签名是否已存在
+    if (tags.some(tag => tag.name.toLowerCase() === newTagName.toLowerCase() && tag.name !== editingTag)) {
+      toast.error('标签名已存在');
+      return;
+    }
+
+    try {
+      // 更新所有包含此标签的书签
+      const bookmarksToUpdate = bookmarks.filter(bookmark =>
+        bookmark.tags.some(tag => tag.toLowerCase() === editingTag.toLowerCase())
+      );
+
+      await Promise.all(
+        bookmarksToUpdate.map(bookmark => {
+          const updatedTags = bookmark.tags.map(tag =>
+            tag.toLowerCase() === editingTag.toLowerCase() ? newTagName : tag
+          );
+          return updateBookmark(bookmark.id, { tags: updatedTags });
+        })
+      );
+
+      toast.success(`标签"${editingTag}"已重命名为"${newTagName}"`);
+
+      // 如果当前选中的标签被重命名，更新选中状态
+      if (selectedTag === editingTag) {
+        onSelectTag(newTagName);
+      }
+
+      // 手动刷新数据以确保UI同步
+      await reloadTags();
+      await reloadBookmarks();
+    } catch (error) {
+      toast.error('重命名标签失败');
+    }
+
+    setEditingTag(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTag(null);
+    setEditValue('');
+  };
+
+  const handleDelete = async (tag: string) => {
+    if (!confirm(`确定要删除标签"${tag}"吗？这将从所有相关收藏中移除此标签。`)) {
+      return;
+    }
+
+    try {
+      // 找到所有包含此标签的书签
+      const bookmarksToUpdate = bookmarks.filter(bookmark =>
+        bookmark.tags.some(t => t.toLowerCase() === tag.toLowerCase())
+      );
+
+      // 从这些书签中移除标签
+      await Promise.all(
+        bookmarksToUpdate.map(bookmark => {
+          const updatedTags = bookmark.tags.filter(t =>
+            t.toLowerCase() !== tag.toLowerCase()
+          );
+          return updateBookmark(bookmark.id, { tags: updatedTags });
+        })
+      );
+
+      toast.success(`标签"${tag}"已删除`);
+
+      // 如果当前选中的标签被删除，重置选中状态
+      if (selectedTag === tag) {
+        onSelectTag(null);
+      }
+
+      // 手动刷新数据以确保UI同步
+      await reloadTags();
+      await reloadBookmarks();
+    } catch (error) {
+      toast.error('删除标签失败');
+    }
+  };
+
+  // 拖拽相关处理
+  const handleDragStart = (e: React.DragEvent, tag: string) => {
+    setDraggedTag(tag);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, tag: string) => {
+    e.preventDefault();
+    setDragOverTag(tag);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverTag(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetTag: string) => {
+    e.preventDefault();
+
+    if (draggedTag && draggedTag !== targetTag) {
+      toast.info('标签排序功能即将推出');
+      // TODO: 实现标签排序逻辑
+    }
+
+    setDraggedTag(null);
+    setDragOverTag(null);
   };
 
   if (loading) {
@@ -162,37 +219,113 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
         {tags.map((tagItem) => {
           const colors = getTagColor(tagItem.name);
           const isSelected = selectedTag === tagItem.name;
+          const isEditing = editingTag === tagItem.name;
+          const isDraggedOver = dragOverTag === tagItem.name;
+
+          if (isEditing) {
+            return (
+              <div
+                key={tagItem.id}
+                className={cn(
+                  "inline-flex items-center px-3 py-2 rounded-lg border transition-all duration-200",
+                  `${colors.bg} ${colors.border} border-2`
+                )}
+              >
+                <Hash size={14} className={cn("mr-1.5", colors.text)} />
+                <input
+                  ref={editInputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSaveEdit();
+                    } else if (e.key === 'Escape') {
+                      handleCancelEdit();
+                    }
+                  }}
+                  onBlur={handleSaveEdit}
+                  className="bg-transparent text-sm font-medium border-none outline-none min-w-0 max-w-[80px]"
+                  style={{ color: 'inherit' }}
+                />
+                <div className="flex items-center ml-2 gap-1">
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-white/60 dark:bg-black/20">
+                    {tagItem.count}
+                  </span>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="p-1 hover:bg-white/30 rounded transition-colors"
+                    title="保存"
+                  >
+                    <Check size={12} />
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="p-1 hover:bg-white/30 rounded transition-colors"
+                    title="取消"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+            );
+          }
 
           return (
-            <button
+            <div
               key={tagItem.id}
-              onClick={() => onSelectTag(tagItem.name)}
-              onContextMenu={(e) => handleContextMenu(e, tagItem.name)}
               className={cn(
-                "group inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                isSelected
-                  ? `${colors.bg} ${colors.text} ${colors.border} border`
-                  : `bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 ${colors.hover}`
+                "group inline-flex items-center rounded-lg transition-all duration-200 relative",
+                isDraggedOver && "ring-2 ring-blue-400 ring-offset-1"
               )}
+              draggable
+              onDragStart={(e) => handleDragStart(e, tagItem.name)}
+              onDragOver={(e) => handleDragOver(e, tagItem.name)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, tagItem.name)}
             >
-              <Hash size={14} className="mr-1.5" />
-              <span className="truncate max-w-[100px]" title={tagItem.name}>
-                {tagItem.name}
-              </span>
-              <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-white/60 dark:bg-black/20">
-                {tagItem.count}
-              </span>
-
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleContextMenu(e, tagItem.name);
-                }}
-                className="ml-1 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/20 transition-all"
+                onClick={() => onSelectTag(tagItem.name)}
+                className={cn(
+                  "inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                  isSelected
+                    ? `${colors.bg} ${colors.text} ${colors.border} border`
+                    : `bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 ${colors.hover}`
+                )}
               >
-                <MoreVertical size={12} />
+                <GripVertical size={12} className="mr-1 opacity-0 group-hover:opacity-50 cursor-grab active:cursor-grabbing" />
+                <Hash size={14} className="mr-1.5" />
+                <span className="truncate max-w-[80px]" title={tagItem.name}>
+                  {tagItem.name}
+                </span>
+                <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-white/60 dark:bg-black/20">
+                  {tagItem.count}
+                </span>
+
+                {/* 悬停时显示的编辑和删除按钮 */}
+                <div className="flex items-center ml-1 opacity-0 transition-all hover:opacity-100">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(tagItem.name);
+                    }}
+                    className="p-1 hover:bg-white/30 rounded transition-colors"
+                    title="编辑标签"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(tagItem.name);
+                    }}
+                    className="p-1 hover:bg-red-500/20 rounded transition-colors text-red-600 dark:text-red-400"
+                    title="删除标签"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </button>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -203,18 +336,6 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
           <p>暂无标签</p>
           <p className="text-sm">开始添加一些收藏来创建标签吧</p>
         </div>
-      )}
-
-      {/* Context Menu */}
-      {contextMenu && (
-        <ContextMenu
-          tag={contextMenu.tag}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
       )}
     </div>
   );

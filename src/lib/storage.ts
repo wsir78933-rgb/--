@@ -97,19 +97,25 @@ export class StorageManager {
   public async getData(): Promise<StorageData> {
     if (!this.cache) {
       const data = await this.storage.get(null);
-      this.cache = data as StorageData;
+      // 验证数据完整性，确保所有必要字段存在
+      if (!data || !data.bookmarks || !data.tags || !data.settings) {
+        // 如果数据不完整，重新初始化
+        await this.initializeStorage();
+      } else {
+        this.cache = data as StorageData;
+      }
     }
-    return this.cache;
+    return this.cache!;
   }
 
   public async getBookmarks(): Promise<Bookmark[]> {
     const data = await this.getData();
-    return data.bookmarks.filter(bookmark => !bookmark.deleted);
+    return (data.bookmarks || []).filter(bookmark => !bookmark.deleted);
   }
 
   public async getTags(): Promise<Record<string, Tag>> {
     const data = await this.getData();
-    return data.tags;
+    return data.tags || {};
   }
 
   public async addBookmark(bookmark: Omit<Bookmark, 'id' | 'createdAt'>): Promise<Bookmark> {
