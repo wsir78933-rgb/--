@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bookmark } from '../types';
 import { StorageManager } from '../lib/storage';
 
@@ -34,7 +34,7 @@ export function useBookmarks() {
     return unsubscribe;
   }, [storageManager]);
 
-  const addBookmark = async (bookmark: Omit<Bookmark, 'id' | 'createdAt'>) => {
+  const addBookmark = useCallback(async (bookmark: Omit<Bookmark, 'id' | 'createdAt'>) => {
     try {
       await storageManager.addBookmark(bookmark);
       // Bookmarks will be updated via the storage listener
@@ -42,9 +42,9 @@ export function useBookmarks() {
       setError(err instanceof Error ? err.message : 'Failed to add bookmark');
       throw err;
     }
-  };
+  }, [storageManager]);
 
-  const updateBookmark = async (id: string, updates: Partial<Bookmark>) => {
+  const updateBookmark = useCallback(async (id: string, updates: Partial<Bookmark>) => {
     try {
       await storageManager.updateBookmark(id, updates);
       // Bookmarks will be updated via the storage listener
@@ -52,9 +52,9 @@ export function useBookmarks() {
       setError(err instanceof Error ? err.message : 'Failed to update bookmark');
       throw err;
     }
-  };
+  }, [storageManager]);
 
-  const deleteBookmark = async (id: string) => {
+  const deleteBookmark = useCallback(async (id: string) => {
     try {
       await storageManager.deleteBookmark(id);
       // Bookmarks will be updated via the storage listener
@@ -62,9 +62,9 @@ export function useBookmarks() {
       setError(err instanceof Error ? err.message : 'Failed to delete bookmark');
       throw err;
     }
-  };
+  }, [storageManager]);
 
-  const searchBookmarks = async (query: string, tags?: string[]) => {
+  const searchBookmarks = useCallback(async (query: string, tags?: string[]) => {
     try {
       const results = await storageManager.searchBookmarks(query, tags);
       return results;
@@ -72,7 +72,7 @@ export function useBookmarks() {
       setError(err instanceof Error ? err.message : 'Failed to search bookmarks');
       return [];
     }
-  };
+  }, [storageManager]);
 
   return {
     bookmarks,

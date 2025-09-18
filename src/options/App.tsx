@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { BookmarkList } from '@/components/BookmarkList/BookmarkList';
-import { Dashboard } from '@/components/Dashboard/Dashboard';
 import { TagGrid } from '@/components/TagGrid/TagGrid';
 import { ExportModal } from '@/components/ExportModal/ExportModal';
 import { useBookmarks } from '@/hooks/useBookmarks';
+import { useTags } from '@/hooks/useTags';
 import { Download, Moon, Sun } from 'lucide-react';
 
 export function OptionsApp() {
@@ -18,6 +18,9 @@ export function OptionsApp() {
     updateBookmark,
     deleteBookmark
   } = useBookmarks();
+
+  // 使用useTags hook获取标签数据
+  const { getTagList } = useTags();
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -68,9 +71,40 @@ export function OptionsApp() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Dashboard />
+        {/* 简化的仪表板 */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            智能收藏管理
+          </h1>
 
-        <div className="mt-8 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {bookmarks.length}
+              </div>
+              <div className="text-sm text-blue-600 dark:text-blue-400">总收藏数</div>
+            </div>
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {getTagList().length}
+              </div>
+              <div className="text-sm text-green-600 dark:text-green-400">标签数</div>
+            </div>
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {bookmarks.filter(b => {
+                  const now = new Date();
+                  const created = new Date(b.createdAt);
+                  const diffDays = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+                  return diffDays <= 7;
+                }).length}
+              </div>
+              <div className="text-sm text-purple-600 dark:text-purple-400">最近7天</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-8">
           <TagGrid
             selectedTag={selectedTag}
             onSelectTag={handleTagSelect}
