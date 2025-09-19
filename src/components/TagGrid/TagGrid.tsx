@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTags } from '@/hooks/useTags';
 import { useBookmarks } from '@/hooks/useBookmarks';
-import { Tag as TagIcon, Edit2, Trash2, Star, Hash, Filter, GripVertical, X, Check } from 'lucide-react';
+import { Tag as TagIcon, Star, Filter, GripVertical, X, Check, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -31,12 +31,14 @@ const getTagColor = (tag: string): { bg: string; text: string; border: string; h
 };
 
 export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
-  const { getTagList, loading, reload: reloadTags } = useTags();
+  const { getTagList, loading, forceUpdate: forceUpdateTags } = useTags();
   const { bookmarks, updateBookmark, reload: reloadBookmarks } = useBookmarks();
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [draggedTag, setDraggedTag] = useState<string | null>(null);
   const [dragOverTag, setDragOverTag] = useState<string | null>(null);
+  const [, setForceRender] = useState(0); // 强制重新渲染
+  const [isDraggable, setIsDraggable] = useState<string | null>(null); // 控制哪个标签可以拖拽
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const tags = getTagList();
@@ -65,20 +67,56 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
     }
 
     try {
+      console.log('编辑标签操作:', editingTag, '->', newTagName);
+
+      // 获取当前存储数据
+      const data = await chrome.storage.local.get(null);
+
+      // 更新标签数据
+      const updatedTags = { ...data.tags };
+      const oldTagKey = Object.keys(updatedTags).find(key =>
+        updatedTags[key].name.toLowerCase() === editingTag.toLowerCase()
+      );
+
+      if (oldTagKey) {
+        // 保留旧标签的所有属性，只更新名称
+        const oldTag = updatedTags[oldTagKey];
+
+        // 删除旧key
+        delete updatedTags[oldTagKey];
+
+        // 使用新key添加标签，保留原有order和其他属性
+        const newTagKey = newTagName.toLowerCase();
+        updatedTags[newTagKey] = {
+          ...oldTag,
+          name: newTagName,
+          // 保持原有的order，如果没有则使用当前时间戳
+          order: oldTag.order || Date.now()
+        };
+      }
+
       // 更新所有包含此标签的书签
-      const bookmarksToUpdate = bookmarks.filter(bookmark =>
-        bookmark.tags.some(tag => tag.toLowerCase() === editingTag.toLowerCase())
-      );
+      const updatedBookmarksList = (data.bookmarks || []).map((bookmark: any) => {
+        if (bookmark.tags && bookmark.tags.includes(editingTag)) {
+          return {
+            ...bookmark,
+            tags: bookmark.tags.map((t: string) =>
+              t === editingTag ? newTagName : t
+            ),
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return bookmark;
+      });
 
-      await Promise.all(
-        bookmarksToUpdate.map(bookmark => {
-          const updatedTags = bookmark.tags.map(tag =>
-            tag.toLowerCase() === editingTag.toLowerCase() ? newTagName : tag
-          );
-          return updateBookmark(bookmark.id, { tags: updatedTags });
-        })
-      );
+      // 更新存储
+      await chrome.storage.local.set({
+        ...data,
+        tags: updatedTags,
+        bookmarks: updatedBookmarksList
+      });
 
+      console.log('标签已重命名:', editingTag, '->', newTagName);
       toast.success(`标签"${editingTag}"已重命名为"${newTagName}"`);
 
       // 如果当前选中的标签被重命名，更新选中状态
@@ -86,10 +124,22 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
         onSelectTag(newTagName);
       }
 
-      // 手动刷新数据以确保UI同步
-      await reloadTags();
+      // 立即强制更新UI
+      await forceUpdateTags();
       await reloadBookmarks();
+
+      // 强制重新渲染组件
+      setForceRender(prev => prev + 1);
+
+      // 额外的延迟更新作为保险
+      setTimeout(async () => {
+        await forceUpdateTags();
+        await reloadBookmarks();
+        setForceRender(prev => prev + 1);
+      }, 200);
+
     } catch (error) {
+      console.error('重命名标签失败:', error);
       toast.error('重命名标签失败');
     }
 
@@ -107,7 +157,12 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
     }
 
     try {
-      // 找到所有包含此标签的书签
+      console.log('删除标签操作点:', tag);
+
+      // 获取当前存储数据
+      const data = await chrome.storage.local.get(null);
+
+      // 找到所有包含此标签的书签并更新
       const bookmarksToUpdate = bookmarks.filter(bookmark =>
         bookmark.tags.some(t => t.toLowerCase() === tag.toLowerCase())
       );
@@ -122,6 +177,37 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
         })
       );
 
+      // 直接从标签数据中删除
+      const updatedTags = { ...data.tags };
+      const tagKey = Object.keys(updatedTags).find(key =>
+        updatedTags[key].name.toLowerCase() === tag.toLowerCase()
+      );
+
+      if (tagKey) {
+        delete updatedTags[tagKey];
+
+        // 同时更新书签数据，移除包含该标签的书签标签
+        const updatedBookmarksList = (data.bookmarks || []).map((bookmark: any) => {
+          if (bookmark.tags && bookmark.tags.includes(tag)) {
+            return {
+              ...bookmark,
+              tags: bookmark.tags.filter((t: string) => t !== tag),
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return bookmark;
+        });
+
+        // 更新存储
+        await chrome.storage.local.set({
+          ...data,
+          tags: updatedTags,
+          bookmarks: updatedBookmarksList
+        });
+
+        console.log('标签已从存储中删除:', tag);
+      }
+
       toast.success(`标签"${tag}"已删除`);
 
       // 如果当前选中的标签被删除，重置选中状态
@@ -129,35 +215,108 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
         onSelectTag(null);
       }
 
-      // 手动刷新数据以确保UI同步
-      await reloadTags();
+      // 立即强制更新UI
+      await forceUpdateTags();
       await reloadBookmarks();
+
     } catch (error) {
+      console.error('删除标签失败:', error);
       toast.error('删除标签失败');
     }
   };
 
+  // 鼠标按下，立即启用拖拽
+  const handleMouseDown = (tag: string) => {
+    // 立即启用拖拽
+    setIsDraggable(tag);
+    // 添加触觉反馈（如果支持）
+    if (window.navigator && 'vibrate' in window.navigator) {
+      window.navigator.vibrate(20);
+    }
+  };
+
+  const handleMouseUp = () => {
+    // 延迟一点清除拖拽状态，避免拖拽结束太快
+    setTimeout(() => {
+      setIsDraggable(null);
+    }, 100);
+  };
+
+  const handleMouseLeave = () => {
+    // 鼠标离开时不立即清除，避免意外中断拖拽
+  };
+
   // 拖拽相关处理
   const handleDragStart = (e: React.DragEvent, tag: string) => {
-    setDraggedTag(tag);
-    e.dataTransfer.effectAllowed = 'move';
+    if (isDraggable === tag) {
+      setDraggedTag(tag);
+      e.dataTransfer.effectAllowed = 'move';
+    } else {
+      e.preventDefault();
+    }
+  };
+
+  const handleDragEnd = () => {
+    setIsDraggable(null);
+    setDraggedTag(null);
+    setDragOverTag(null);
   };
 
   const handleDragOver = (e: React.DragEvent, tag: string) => {
-    e.preventDefault();
-    setDragOverTag(tag);
+    if (draggedTag) {
+      e.preventDefault();
+      setDragOverTag(tag);
+    }
   };
 
   const handleDragLeave = () => {
     setDragOverTag(null);
   };
 
-  const handleDrop = (e: React.DragEvent, targetTag: string) => {
+  const handleDrop = async (e: React.DragEvent, targetTag: string) => {
     e.preventDefault();
 
     if (draggedTag && draggedTag !== targetTag) {
-      toast.info('标签排序功能即将推出');
-      // TODO: 实现标签排序逻辑
+      try {
+        console.log('拖拽排序:', draggedTag, '->', targetTag);
+
+        // 获取当前存储数据
+        const data = await chrome.storage.local.get(null);
+        const updatedTags = { ...data.tags };
+
+        // 找到源标签和目标标签
+        const draggedIndex = tags.findIndex(t => t.name === draggedTag);
+        const targetIndex = tags.findIndex(t => t.name === targetTag);
+
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+          // 重新计算所有标签的order
+          const reorderedTags = [...tags];
+          const [removed] = reorderedTags.splice(draggedIndex, 1);
+          reorderedTags.splice(targetIndex, 0, removed);
+
+          // 更新存储中的order
+          reorderedTags.forEach((tag, index) => {
+            const tagKey = Object.keys(updatedTags).find(key =>
+              updatedTags[key].name === tag.name
+            );
+            if (tagKey) {
+              updatedTags[tagKey].order = index;
+            }
+          });
+
+          // 保存到存储
+          await chrome.storage.local.set({ ...data, tags: updatedTags });
+
+          // 更新UI
+          await forceUpdateTags();
+          setForceRender(prev => prev + 1);
+
+          toast.success('标签排序已更新');
+        }
+      } catch (error) {
+        console.error('排序失败:', error);
+        toast.error('标签排序失败');
+      }
     }
 
     setDraggedTag(null);
@@ -231,7 +390,6 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
                   `${colors.bg} ${colors.border} border-2`
                 )}
               >
-                <Hash size={14} className={cn("mr-1.5", colors.text)} />
                 <input
                   ref={editInputRef}
                   value={editValue}
@@ -275,47 +433,77 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
               key={tagItem.id}
               className={cn(
                 "group inline-flex items-center rounded-lg transition-all duration-200 relative",
-                isDraggedOver && "ring-2 ring-blue-400 ring-offset-1"
+                isDraggedOver && "ring-2 ring-blue-400 ring-offset-1",
+                draggedTag === tagItem.name && "opacity-50"
               )}
-              draggable
+              draggable={isDraggable === tagItem.name}
               onDragStart={(e) => handleDragStart(e, tagItem.name)}
+              onDragEnd={handleDragEnd}
               onDragOver={(e) => handleDragOver(e, tagItem.name)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, tagItem.name)}
             >
-              <button
-                onClick={() => onSelectTag(tagItem.name)}
+              <div
                 className={cn(
-                  "inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                  "inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-grab active:cursor-grabbing select-none",
                   isSelected
                     ? `${colors.bg} ${colors.text} ${colors.border} border`
-                    : `bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 ${colors.hover}`
+                    : `bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 ${colors.hover}`,
+                  isDraggable === tagItem.name && "cursor-grabbing shadow-lg"
                 )}
+                onClick={() => {
+                  // 如果不是拖拽模式，执行选择
+                  if (!isDraggable) {
+                    onSelectTag(tagItem.name);
+                  }
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  // 清除拖拽状态，避免编辑时处于拖拽模式
+                  setIsDraggable(null);
+                  handleEdit(tagItem.name);
+                }}
+                onMouseDown={(e) => {
+                  // 如果点击的是删除按钮，不启动长按
+                  const target = e.target as HTMLElement;
+                  if (!target.closest('button')) {
+                    handleMouseDown(tagItem.name);
+                  }
+                }}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+                onTouchStart={(e) => {
+                  // 支持触摸设备
+                  const target = e.target as HTMLElement;
+                  if (!target.closest('button')) {
+                    handleMouseDown(tagItem.name);
+                  }
+                }}
+                onTouchEnd={handleMouseUp}
+                title="拖拽排序 | 单击选择 | 双击编辑"
               >
-                <GripVertical size={12} className="mr-1 opacity-0 group-hover:opacity-50 cursor-grab active:cursor-grabbing" />
-                <Hash size={14} className="mr-1.5" />
-                <span className="truncate max-w-[80px]" title={tagItem.name}>
+                <GripVertical size={12} className={cn(
+                  "mr-1 transition-opacity pointer-events-none",
+                  isDraggable === tagItem.name ? "opacity-100" : "opacity-0 group-hover:opacity-50"
+                )} />
+                <span className="truncate max-w-[80px] pointer-events-none">
                   {tagItem.name}
                 </span>
-                <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-white/60 dark:bg-black/20">
+                <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-white/60 dark:bg-black/20 pointer-events-none">
                   {tagItem.count}
                 </span>
 
-                {/* 悬停时显示的编辑和删除按钮 */}
-                <div className="flex items-center ml-1 opacity-0 transition-all hover:opacity-100">
+                {/* 悬停时显示的删除按钮 - 在标签内部 */}
+                <div className="ml-1 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={(e) => {
+                    onMouseDown={(e) => {
+                      // 阻止删除按钮触发长按
                       e.stopPropagation();
-                      handleEdit(tagItem.name);
                     }}
-                    className="p-1 hover:bg-white/30 rounded transition-colors"
-                    title="编辑标签"
-                  >
-                    <Edit2 size={12} />
-                  </button>
-                  <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      e.preventDefault();
+                      console.log('删除按钮被点击:', tagItem.name);
                       handleDelete(tagItem.name);
                     }}
                     className="p-1 hover:bg-red-500/20 rounded transition-colors text-red-600 dark:text-red-400"
@@ -324,7 +512,7 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
                     <Trash2 size={12} />
                   </button>
                 </div>
-              </button>
+              </div>
             </div>
           );
         })}

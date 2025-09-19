@@ -17,6 +17,7 @@ export interface Tag {
   count: number;
   color?: string;
   createdAt: string;
+  order?: number;  // 添加排序字段
 }
 
 export interface StorageData {

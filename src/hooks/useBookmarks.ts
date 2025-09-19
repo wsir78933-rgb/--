@@ -7,9 +7,22 @@ export function useBookmarks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const storageManager = StorageManager.getInstance();
+  let storageManager: StorageManager | null = null;
+
+  try {
+    storageManager = StorageManager.getInstance();
+  } catch (err) {
+    console.error('Failed to initialize StorageManager:', err);
+    setError('Storage initialization failed');
+  }
 
   const loadBookmarks = async () => {
+    if (!storageManager) {
+      setError('Storage manager not available');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const data = await storageManager.getBookmarks();
@@ -25,6 +38,8 @@ export function useBookmarks() {
   useEffect(() => {
     loadBookmarks();
 
+    if (!storageManager) return;
+
     // Listen for storage changes
     const unsubscribe = storageManager.addListener((data) => {
       const activeBookmarks = data.bookmarks.filter(b => !b.deleted);
@@ -35,6 +50,10 @@ export function useBookmarks() {
   }, [storageManager]);
 
   const addBookmark = useCallback(async (bookmark: Omit<Bookmark, 'id' | 'createdAt'>) => {
+    if (!storageManager) {
+      throw new Error('Storage manager not available');
+    }
+
     try {
       await storageManager.addBookmark(bookmark);
       // Bookmarks will be updated via the storage listener
@@ -45,6 +64,10 @@ export function useBookmarks() {
   }, [storageManager]);
 
   const updateBookmark = useCallback(async (id: string, updates: Partial<Bookmark>) => {
+    if (!storageManager) {
+      throw new Error('Storage manager not available');
+    }
+
     try {
       await storageManager.updateBookmark(id, updates);
       // Bookmarks will be updated via the storage listener
@@ -55,6 +78,10 @@ export function useBookmarks() {
   }, [storageManager]);
 
   const deleteBookmark = useCallback(async (id: string) => {
+    if (!storageManager) {
+      throw new Error('Storage manager not available');
+    }
+
     try {
       await storageManager.deleteBookmark(id);
       // Bookmarks will be updated via the storage listener
@@ -65,6 +92,11 @@ export function useBookmarks() {
   }, [storageManager]);
 
   const searchBookmarks = useCallback(async (query: string, tags?: string[]) => {
+    if (!storageManager) {
+      setError('Storage manager not available');
+      return [];
+    }
+
     try {
       const results = await storageManager.searchBookmarks(query, tags);
       return results;

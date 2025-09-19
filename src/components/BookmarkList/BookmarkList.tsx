@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Bookmark } from '../../types';
 import { formatDate, cn } from '../../lib/utils';
 import { BookmarkForm } from '../BookmarkForm/BookmarkForm';
+import { Trash2, Edit, CheckSquare, Square } from 'lucide-react';
 
 interface BookmarkListProps {
   bookmarks: Bookmark[];
   loading?: boolean;
   onUpdate: (id: string, updates: Partial<Bookmark>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onBatchDelete?: (ids: string[]) => Promise<void>;
   emptyMessage?: string;
   className?: string;
   selectedTag?: string | null;
@@ -18,11 +20,15 @@ export function BookmarkList({
   loading = false,
   onUpdate,
   onDelete,
+  onBatchDelete,
   emptyMessage = '没有收藏',
   className
 }: BookmarkListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
 
   const handleEdit = (bookmark: Bookmark) => {
     setEditingId(bookmark.id);
@@ -56,6 +62,47 @@ export function BookmarkList({
     }
   };
 
+  // 批量操作处理函数
+  const toggleBatchMode = () => {
+    setBatchMode(!batchMode);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelectItem = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === bookmarks.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(bookmarks.map(b => b.id)));
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0 || !onBatchDelete) return;
+
+    setBatchDeleting(true);
+    try {
+      await onBatchDelete(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setBatchMode(false);
+    } catch (error) {
+      console.error('Failed to batch delete bookmarks:', error);
+    } finally {
+      setBatchDeleting(false);
+    }
+  };
+
+  const isAllSelected = selectedIds.size === bookmarks.length && bookmarks.length > 0;
+
   const openUrl = (url: string) => {
     chrome.tabs.create({ url });
   };
@@ -84,11 +131,71 @@ export function BookmarkList({
   }
 
   return (
-    <div className={cn('space-y-3 max-h-96 overflow-y-auto', className)}>
-      {bookmarks.map(bookmark => (
+    <div className={cn('space-y-3', className)}>
+      {/* 批量操作控制栏 */}
+      {bookmarks.length > 0 && (
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            {!batchMode ? (
+              <button
+                onClick={toggleBatchMode}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <CheckSquare size={16} />
+                批量管理
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={selectAll}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 border border-blue-300 dark:border-blue-600 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                >
+                  {isAllSelected ? <Square size={16} /> : <CheckSquare size={16} />}
+                  {isAllSelected ? '取消全选' : '全选'}
+                </button>
+
+                {selectedIds.size > 0 && onBatchDelete && (
+                  <button
+                    onClick={handleBatchDelete}
+                    disabled={batchDeleting}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                  >
+                    {batchDeleting ? (
+                      <div className="w-4 h-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    删除选中 ({selectedIds.size})
+                  </button>
+                )}
+
+                <button
+                  onClick={toggleBatchMode}
+                  className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  取消
+                </button>
+              </>
+            )}
+          </div>
+
+          {batchMode && (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              已选择 {selectedIds.size} / {bookmarks.length} 个收藏
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 收藏列表 */}
+      <div className="space-y-3 max-h-96 overflow-y-auto">
+        {bookmarks.map(bookmark => (
         <div
           key={bookmark.id}
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow"
+          className={cn(
+            "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow",
+            batchMode && selectedIds.has(bookmark.id) && "ring-2 ring-blue-500 dark:ring-blue-400"
+          )}
         >
           {editingId === bookmark.id ? (
             <div className="space-y-3">
@@ -110,6 +217,22 @@ export function BookmarkList({
             <>
               {/* Header */}
               <div className="flex items-start justify-between gap-2 mb-2">
+                {/* 批量选择框 */}
+                {batchMode && (
+                  <div className="flex-shrink-0 pt-1">
+                    <button
+                      onClick={() => toggleSelectItem(bookmark.id)}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      {selectedIds.has(bookmark.id) ? (
+                        <CheckSquare size={18} className="text-blue-600 dark:text-blue-400" />
+                      ) : (
+                        <Square size={18} className="text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     {bookmark.favicon && (
@@ -144,41 +267,29 @@ export function BookmarkList({
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => handleEdit(bookmark)}
-                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                    title="编辑"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(bookmark.id)}
-                    disabled={deletingId === bookmark.id}
-                    className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50"
-                    title="删除"
-                  >
-                    {deletingId === bookmark.id ? (
-                      <div className="w-4 h-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                {!batchMode && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleEdit(bookmark)}
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      title="编辑"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(bookmark.id)}
+                      disabled={deletingId === bookmark.id}
+                      className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50"
+                      title="删除"
+                    >
+                      {deletingId === bookmark.id ? (
+                        <div className="w-4 h-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Note */}
@@ -213,6 +324,7 @@ export function BookmarkList({
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }

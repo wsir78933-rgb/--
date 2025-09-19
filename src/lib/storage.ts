@@ -8,77 +8,163 @@ export class StorageManager {
   private listeners: Set<(data: StorageData) => void> = new Set();
 
   private constructor() {
-    this.storage = chrome.storage.local;
+    // 检查Chrome API是否可用
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      this.storage = chrome.storage.local;
+    } else {
+      throw new Error('Chrome storage API is not available');
+    }
     this.initializeStorage();
     this.setupStorageListener();
   }
 
   public static getInstance(): StorageManager {
     if (!StorageManager.instance) {
-      StorageManager.instance = new StorageManager();
+      try {
+        StorageManager.instance = new StorageManager();
+      } catch (error) {
+        console.error('Failed to create StorageManager instance:', error);
+        throw error;
+      }
     }
     return StorageManager.instance;
   }
 
   private async initializeStorage(): Promise<void> {
-    const data = await this.storage.get(null);
-    if (!data.bookmarks || !data.tags || !data.settings) {
-      // 创建预设标签
-      const defaultTagsData: Record<string, Tag> = {};
-      DEFAULT_TAGS.forEach(tagName => {
-        const normalizedTag = normalizeTag(tagName);
-        defaultTagsData[normalizedTag] = {
-          id: generateId(),
-          name: tagName,
-          count: 0,
-          createdAt: new Date().toISOString()
-        };
-      });
+    try {
+      const data = await this.storage.get(null);
+      if (!data || !data.bookmarks || !data.tags || !data.settings) {
+        // 创建预设标签
+        const defaultTagsData: Record<string, Tag> = {};
+        DEFAULT_TAGS.forEach(tagName => {
+          const normalizedTag = normalizeTag(tagName);
+          defaultTagsData[normalizedTag] = {
+            id: generateId(),
+            name: tagName,
+            count: 0,
+            createdAt: new Date().toISOString()
+          };
+        });
 
-      const initialData: StorageData = {
+        const initialData: StorageData = {
+          bookmarks: [],
+          tags: defaultTagsData,
+          settings: {
+            version: '1.0.0',
+            theme: 'auto',
+            dashboardCollapsed: false
+          }
+        };
+        await this.storage.set(initialData);
+        this.cache = initialData;
+      } else {
+        // 验证和修复数据格式
+        let needsUpdate = false;
+
+        // 确保 bookmarks 是数组格式
+        if (!Array.isArray(data.bookmarks)) {
+          console.warn('Invalid bookmarks format detected, converting to array');
+          if (typeof data.bookmarks === 'object' && data.bookmarks !== null) {
+            // 如果是对象格式，转换为数组
+            data.bookmarks = Object.values(data.bookmarks);
+          } else {
+            // 如果不是有效格式，初始化为空数组
+            data.bookmarks = [];
+          }
+          needsUpdate = true;
+        }
+
+        // 确保 tags 是对象格式
+        if (!data.tags || typeof data.tags !== 'object') {
+          console.warn('Invalid tags format detected, initializing');
+          data.tags = {};
+          needsUpdate = true;
+        }
+
+        // 确保 settings 存在
+        if (!data.settings || typeof data.settings !== 'object') {
+          data.settings = {
+            version: '1.0.0',
+            theme: 'auto',
+            dashboardCollapsed: false
+          };
+          needsUpdate = true;
+        }
+
+        this.cache = data as StorageData;
+
+        // 检查并添加缺失的预设标签
+        DEFAULT_TAGS.forEach(tagName => {
+          const normalizedTag = normalizeTag(tagName);
+          if (!this.cache!.tags[normalizedTag]) {
+            this.cache!.tags[normalizedTag] = {
+              id: generateId(),
+              name: tagName,
+              count: 0,
+              createdAt: new Date().toISOString()
+            };
+            needsUpdate = true;
+          }
+        });
+
+        // 重新计算标签统计以确保准确性
+        const tagCounts: Record<string, number> = {};
+        this.cache.bookmarks.forEach(bookmark => {
+          if (bookmark.tags && Array.isArray(bookmark.tags)) {
+            bookmark.tags.forEach(tag => {
+              tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+            });
+          }
+        });
+
+        // 更新标签计数
+        Object.values(this.cache.tags).forEach(tag => {
+          const newCount = tagCounts[tag.name] || 0;
+          if (tag.count !== newCount) {
+            tag.count = newCount;
+            needsUpdate = true;
+          }
+        });
+
+        if (needsUpdate) {
+          console.log('Updating storage with corrected data format');
+          await this.storage.set(this.cache);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initialize storage:', error);
+      // 创建最小化的默认数据作为回退
+      const fallbackData: StorageData = {
         bookmarks: [],
-        tags: defaultTagsData,
+        tags: {},
         settings: {
           version: '1.0.0',
           theme: 'auto',
           dashboardCollapsed: false
         }
       };
-      await this.storage.set(initialData);
-      this.cache = initialData;
-    } else {
-      this.cache = data as StorageData;
-
-      // 检查并添加缺失的预设标签
-      let needsUpdate = false;
-      DEFAULT_TAGS.forEach(tagName => {
-        const normalizedTag = normalizeTag(tagName);
-        if (!this.cache!.tags[normalizedTag]) {
-          this.cache!.tags[normalizedTag] = {
-            id: generateId(),
-            name: tagName,
-            count: 0,
-            createdAt: new Date().toISOString()
-          };
-          needsUpdate = true;
-        }
-      });
-
-      if (needsUpdate) {
-        await this.storage.set(this.cache);
+      this.cache = fallbackData;
+      try {
+        await this.storage.set(fallbackData);
+      } catch (setError) {
+        console.error('Failed to set fallback data:', setError);
       }
     }
   }
 
   private setupStorageListener(): void {
-    chrome.storage.onChanged.addListener((_changes, namespace) => {
-      if (namespace === 'local') {
-        this.invalidateCache();
-        this.getData().then(data => {
-          this.notifyListeners(data);
-        });
-      }
-    });
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((_changes, namespace) => {
+        if (namespace === 'local') {
+          this.invalidateCache();
+          this.getData().then(data => {
+            this.notifyListeners(data);
+          }).catch(error => {
+            console.error('Failed to get data in storage listener:', error);
+          });
+        }
+      });
+    }
   }
 
   private invalidateCache(): void {
@@ -102,7 +188,34 @@ export class StorageManager {
         // 如果数据不完整，重新初始化
         await this.initializeStorage();
       } else {
+        // 额外的数据格式验证
+        let needsUpdate = false;
+
+        // 确保 bookmarks 是数组格式
+        if (!Array.isArray(data.bookmarks)) {
+          console.warn('getData: Invalid bookmarks format detected, converting to array');
+          if (typeof data.bookmarks === 'object' && data.bookmarks !== null) {
+            data.bookmarks = Object.values(data.bookmarks);
+          } else {
+            data.bookmarks = [];
+          }
+          needsUpdate = true;
+        }
+
+        // 确保 tags 是对象格式
+        if (!data.tags || typeof data.tags !== 'object') {
+          console.warn('getData: Invalid tags format detected');
+          data.tags = {};
+          needsUpdate = true;
+        }
+
         this.cache = data as StorageData;
+
+        // 如果数据格式有问题，更新存储
+        if (needsUpdate) {
+          console.log('getData: Updating storage with corrected format');
+          await this.storage.set(this.cache);
+        }
       }
     }
     return this.cache!;
@@ -110,7 +223,14 @@ export class StorageManager {
 
   public async getBookmarks(): Promise<Bookmark[]> {
     const data = await this.getData();
-    return (data.bookmarks || []).filter(bookmark => !bookmark.deleted);
+
+    // 额外的安全检查，确保 bookmarks 是数组
+    if (!Array.isArray(data.bookmarks)) {
+      console.error('getBookmarks: bookmarks is not an array, returning empty array');
+      return [];
+    }
+
+    return data.bookmarks.filter(bookmark => bookmark && !bookmark.deleted);
   }
 
   public async getTags(): Promise<Record<string, Tag>> {
