@@ -59,7 +59,8 @@ export const DEFAULT_TAGS = [
   '开发',
   '文档',
   '资源',
-  '教程'
+  '教程',
+  '快速收藏'
 ] as const;
 
 export type DefaultTag = typeof DEFAULT_TAGS[number];

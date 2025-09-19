@@ -22,22 +22,31 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     title: '智能收藏此页面',
     contexts: ['page', 'link']
   });
+
+  // Create direct bookmark context menu
+  chrome.contextMenus.create({
+    id: 'quick-bookmark',
+    title: '🔖 快速收藏',
+    contexts: ['page', 'link']
+  });
 });
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'smart-bookmark' && tab) {
-    try {
-      const url = info.linkUrl || tab.url;
-      const title = tab.title || 'Untitled';
-      const favicon = tab.favIconUrl;
+  if (!tab) return;
 
-      if (!url) {
-        console.error('No URL to bookmark');
-        return;
-      }
+  try {
+    const url = info.linkUrl || tab.url;
+    const title = tab.title || 'Untitled';
+    const favicon = tab.favIconUrl;
 
-      // Open popup or handle bookmark creation
+    if (!url) {
+      console.error('No URL to bookmark');
+      return;
+    }
+
+    if (info.menuItemId === 'smart-bookmark') {
+      // Open popup for advanced bookmarking
       chrome.action.openPopup();
 
       // Store the context info for the popup to use
@@ -49,11 +58,66 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         }
       });
 
-    } catch (error) {
-      console.error('Failed to handle context menu click:', error);
+    } else if (info.menuItemId === 'quick-bookmark') {
+      // Quick bookmark with default settings
+      await handleQuickBookmark(url, title, favicon);
     }
+
+  } catch (error) {
+    console.error('Failed to handle context menu click:', error);
   }
 });
+
+// Handle quick bookmark creation
+async function handleQuickBookmark(url: string, title: string, favicon?: string): Promise<void> {
+  try {
+    // Check if bookmark already exists
+    const storageManager = StorageManager.getInstance();
+    const bookmarks = await storageManager.getBookmarks();
+
+    const existingBookmark = bookmarks.find(bookmark => bookmark.url === url);
+    if (existingBookmark) {
+      // Show notification that bookmark already exists
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: favicon || 'icons/icon-48.png',
+        title: '收藏提醒',
+        message: `"${title}" 已经收藏过了！`
+      });
+      return;
+    }
+
+    // Create bookmark with default tag
+    const newBookmark = await storageManager.addBookmark({
+      url,
+      title,
+      note: '',
+      tags: ['快速收藏'], // Default tag for quick bookmarks
+      favicon
+    });
+
+    // Show success notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: favicon || 'icons/icon-48.png',
+      title: '收藏成功',
+      message: `已收藏: ${title}`
+    });
+
+    console.log('Quick bookmark created:', newBookmark);
+
+  } catch (error) {
+    console.error('Failed to create quick bookmark:', error);
+
+    // Show error notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon-48.png',
+      title: '收藏失败',
+      message: '收藏时出现错误，请稍后重试'
+    });
+  }
+}
 
 // Handle keyboard shortcuts
 chrome.commands.onCommand.addListener(async (command) => {
