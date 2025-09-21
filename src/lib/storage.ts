@@ -43,9 +43,20 @@ export class StorageManager {
 
       if (!data || !data.bookmarks || !data.tags || !data.settings) {
         console.log('🔧 [StorageManager] 数据不完整，创建初始数据...');
-        // 创建预设标签
+
+        // 保留现有的 deletedDefaultTags 记录
+        const existingDeletedDefaultTags = data?.deletedDefaultTags || [];
+        console.log('🗑️ [StorageManager] 保留已删除的默认标签记录:', existingDeletedDefaultTags);
+
+        // 创建预设标签，但跳过已删除的
         const defaultTagsData: Record<string, Tag> = {};
         DEFAULT_TAGS.forEach(tagName => {
+          // 检查是否已被用户删除
+          if (existingDeletedDefaultTags.includes(tagName)) {
+            console.log(`🚫 [StorageManager] 跳过已删除的默认标签: ${tagName}`);
+            return;
+          }
+
           const normalizedTag = normalizeTag(tagName);
           console.log(`🏷️ [StorageManager] 创建默认标签: ${tagName} -> ${normalizedTag}`);
           defaultTagsData[normalizedTag] = {
@@ -59,6 +70,7 @@ export class StorageManager {
         const initialData: StorageData = {
           bookmarks: [],
           tags: defaultTagsData,
+          deletedDefaultTags: existingDeletedDefaultTags, // 保留删除记录
           settings: {
             version: '1.0.0',
             theme: 'auto',
