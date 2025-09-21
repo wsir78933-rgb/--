@@ -6,6 +6,8 @@ export class StorageManager {
   private storage: chrome.storage.StorageArea;
   private cache: StorageData | null = null;
   private listeners: Set<(data: StorageData) => void> = new Set();
+  private isInitialized: boolean = false;
+  private isInitializing: boolean = false;
 
   private constructor() {
     // 检查Chrome API是否可用
@@ -32,6 +34,18 @@ export class StorageManager {
   }
 
   private async initializeStorage(): Promise<void> {
+    // 防止重复初始化
+    if (this.isInitialized) {
+      console.log('✅ [StorageManager] 已经初始化，跳过');
+      return;
+    }
+
+    if (this.isInitializing) {
+      console.log('⚠️ [StorageManager] 正在初始化中，跳过');
+      return;
+    }
+
+    this.isInitializing = true;
     console.log('🔧 [StorageManager] 开始初始化存储...');
     try {
       const data = await this.storage.get(null);
@@ -208,6 +222,9 @@ export class StorageManager {
           console.log('✅ [StorageManager] 数据无需更新');
         }
       }
+      // 标记初始化完成
+      this.isInitialized = true;
+      console.log('✅ [StorageManager] 初始化完成，设置isInitialized=true');
     } catch (error) {
       console.error('Failed to initialize storage:', error);
       // 创建最小化的默认数据作为回退
@@ -226,6 +243,8 @@ export class StorageManager {
       } catch (setError) {
         console.error('Failed to set fallback data:', setError);
       }
+    } finally {
+      this.isInitializing = false;
     }
   }
 
