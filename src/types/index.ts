@@ -23,6 +23,7 @@ export interface Tag {
 export interface StorageData {
   bookmarks: Bookmark[];
   tags: Record<string, Tag>;
+  deletedDefaultTags?: string[]; // 记录用户删除的默认标签
   settings: {
     version: string;
     theme?: 'light' | 'dark' | 'auto';
