@@ -166,25 +166,32 @@ export class StorageManager {
 
   private setupStorageListener(): void {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      let isProcessing = false; // 防止重复处理
+
       chrome.storage.onChanged.addListener(async (_changes, namespace) => {
-        if (namespace === 'local') {
+        if (namespace === 'local' && !isProcessing) {
+          isProcessing = true;
           console.log('Storage changed, clearing cache and refreshing data...');
 
-          // 立即清除缓存
-          this.invalidateCache();
-
-          // 强制等待一下确保存储操作完成
-          await new Promise(resolve => setTimeout(resolve, 50));
-
           try {
-            // 重新获取最新数据
-            const data = await this.getData();
+            // 立即清除缓存
+            this.invalidateCache();
+
+            // 直接从存储获取数据，不触发 getData() 的初始化逻辑
+            const rawData = await this.storage.get(null);
+            this.cache = rawData as StorageData;
+
             console.log('Storage listener: notifying with fresh data');
 
             // 立即通知所有监听器
-            this.notifyListeners(data);
+            this.notifyListeners(this.cache);
           } catch (error) {
             console.error('Failed to get data in storage listener:', error);
+          } finally {
+            // 短暂延迟后重置处理状态
+            setTimeout(() => {
+              isProcessing = false;
+            }, 100);
           }
         }
       });
@@ -234,6 +241,9 @@ export class StorageManager {
         }
 
         this.cache = data as StorageData;
+
+        // 🚨 移除标签重新计算逻辑以避免循环
+        // 不再在 getData 中重新计算标签，只在真正的初始化时计算
 
         // 如果数据格式有问题，更新存储
         if (needsUpdate) {
