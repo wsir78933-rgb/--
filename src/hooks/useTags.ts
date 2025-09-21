@@ -78,9 +78,21 @@ export function useTags() {
     try {
       // 先清除缓存，确保获取最新数据
       storageManager.invalidateCache();
+
+      // 等待一下确保缓存清除生效
+      await new Promise(resolve => setTimeout(resolve, 10));
+
       const data = await storageManager.getTags();
       console.log('获取到新的标签数据:', data);
+
+      // 立即更新状态
       setTags(data || {});
+
+      // 为了确保UI更新，再次设置状态
+      setTimeout(() => {
+        setTags(prev => ({ ...data }));
+      }, 10);
+
     } catch (err) {
       console.error('强制更新失败:', err);
     }

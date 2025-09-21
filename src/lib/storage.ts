@@ -166,14 +166,26 @@ export class StorageManager {
 
   private setupStorageListener(): void {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
-      chrome.storage.onChanged.addListener((_changes, namespace) => {
+      chrome.storage.onChanged.addListener(async (_changes, namespace) => {
         if (namespace === 'local') {
+          console.log('Storage changed, clearing cache and refreshing data...');
+
+          // 立即清除缓存
           this.invalidateCache();
-          this.getData().then(data => {
+
+          // 强制等待一下确保存储操作完成
+          await new Promise(resolve => setTimeout(resolve, 50));
+
+          try {
+            // 重新获取最新数据
+            const data = await this.getData();
+            console.log('Storage listener: notifying with fresh data');
+
+            // 立即通知所有监听器
             this.notifyListeners(data);
-          }).catch(error => {
+          } catch (error) {
             console.error('Failed to get data in storage listener:', error);
-          });
+          }
         }
       });
     }
