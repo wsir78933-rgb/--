@@ -84,6 +84,7 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
 
         // 删除旧key
         delete updatedTags[oldTagKey];
+        console.log('删除旧标签键:', oldTagKey);
 
         // 使用新key添加标签，保留原有order和其他属性
         const newTagKey = newTagName.toLowerCase();
@@ -93,15 +94,16 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
           // 保持原有的order，如果没有则使用当前时间戳
           order: oldTag.order || Date.now()
         };
+        console.log('添加新标签键:', newTagKey);
       }
 
       // 更新所有包含此标签的书签
       const updatedBookmarksList = (data.bookmarks || []).map((bookmark: any) => {
-        if (bookmark.tags && bookmark.tags.includes(editingTag)) {
+        if (bookmark.tags && bookmark.tags.some((t: string) => t.toLowerCase() === editingTag.toLowerCase())) {
           return {
             ...bookmark,
             tags: bookmark.tags.map((t: string) =>
-              t === editingTag ? newTagName : t
+              t.toLowerCase() === editingTag.toLowerCase() ? newTagName : t
             ),
             updatedAt: new Date().toISOString()
           };
@@ -109,14 +111,14 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
         return bookmark;
       });
 
-      // 更新存储
+      // 一次性更新存储，确保数据一致性
       await chrome.storage.local.set({
         ...data,
         tags: updatedTags,
         bookmarks: updatedBookmarksList
       });
 
-      console.log('标签已重命名:', editingTag, '->', newTagName);
+      console.log('标签重命名操作完成，存储已更新');
       toast.success(`标签"${editingTag}"已重命名为"${newTagName}"`);
 
       // 如果当前选中的标签被重命名，更新选中状态
@@ -124,19 +126,12 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
         onSelectTag(newTagName);
       }
 
-      // 立即强制更新UI
-      await forceUpdateTags();
-      await reloadBookmarks();
-
-      // 强制重新渲染组件
-      setForceRender(prev => prev + 1);
-
-      // 额外的延迟更新作为保险
+      // 强制刷新数据
       setTimeout(async () => {
         await forceUpdateTags();
         await reloadBookmarks();
         setForceRender(prev => prev + 1);
-      }, 200);
+      }, 100);
 
     } catch (error) {
       console.error('重命名标签失败:', error);
@@ -157,57 +152,43 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
     }
 
     try {
-      console.log('删除标签操作点:', tag);
+      console.log('删除标签操作:', tag);
 
       // 获取当前存储数据
       const data = await chrome.storage.local.get(null);
 
-      // 找到所有包含此标签的书签并更新
-      const bookmarksToUpdate = bookmarks.filter(bookmark =>
-        bookmark.tags.some(t => t.toLowerCase() === tag.toLowerCase())
-      );
-
-      // 从这些书签中移除标签
-      await Promise.all(
-        bookmarksToUpdate.map(bookmark => {
-          const updatedTags = bookmark.tags.filter(t =>
-            t.toLowerCase() !== tag.toLowerCase()
-          );
-          return updateBookmark(bookmark.id, { tags: updatedTags });
-        })
-      );
-
-      // 直接从标签数据中删除
+      // 找到要删除的标签键
       const updatedTags = { ...data.tags };
       const tagKey = Object.keys(updatedTags).find(key =>
         updatedTags[key].name.toLowerCase() === tag.toLowerCase()
       );
 
       if (tagKey) {
+        // 删除标签
         delete updatedTags[tagKey];
-
-        // 同时更新书签数据，移除包含该标签的书签标签
-        const updatedBookmarksList = (data.bookmarks || []).map((bookmark: any) => {
-          if (bookmark.tags && bookmark.tags.includes(tag)) {
-            return {
-              ...bookmark,
-              tags: bookmark.tags.filter((t: string) => t !== tag),
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return bookmark;
-        });
-
-        // 更新存储
-        await chrome.storage.local.set({
-          ...data,
-          tags: updatedTags,
-          bookmarks: updatedBookmarksList
-        });
-
-        console.log('标签已从存储中删除:', tag);
+        console.log('已删除标签键:', tagKey);
       }
 
+      // 更新所有书签，移除该标签
+      const updatedBookmarksList = (data.bookmarks || []).map((bookmark: any) => {
+        if (bookmark.tags && bookmark.tags.some((t: string) => t.toLowerCase() === tag.toLowerCase())) {
+          return {
+            ...bookmark,
+            tags: bookmark.tags.filter((t: string) => t.toLowerCase() !== tag.toLowerCase()),
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return bookmark;
+      });
+
+      // 一次性更新存储，确保数据一致性
+      await chrome.storage.local.set({
+        ...data,
+        tags: updatedTags,
+        bookmarks: updatedBookmarksList
+      });
+
+      console.log('标签删除操作完成，存储已更新');
       toast.success(`标签"${tag}"已删除`);
 
       // 如果当前选中的标签被删除，重置选中状态
@@ -215,9 +196,11 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
         onSelectTag(null);
       }
 
-      // 立即强制更新UI
-      await forceUpdateTags();
-      await reloadBookmarks();
+      // 强制刷新数据
+      setTimeout(async () => {
+        await forceUpdateTags();
+        await reloadBookmarks();
+      }, 100);
 
     } catch (error) {
       console.error('删除标签失败:', error);

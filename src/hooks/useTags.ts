@@ -76,6 +76,8 @@ export function useTags() {
     if (!storageManager) return;
 
     try {
+      // 先清除缓存，确保获取最新数据
+      storageManager.invalidateCache();
       const data = await storageManager.getTags();
       console.log('获取到新的标签数据:', data);
       setTags(data || {});

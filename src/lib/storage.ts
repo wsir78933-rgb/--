@@ -167,7 +167,7 @@ export class StorageManager {
     }
   }
 
-  private invalidateCache(): void {
+  public invalidateCache(): void {
     this.cache = null;
   }
 
