@@ -51,13 +51,13 @@ export class StorageManager {
         // 创建预设标签，但跳过已删除的
         const defaultTagsData: Record<string, Tag> = {};
         DEFAULT_TAGS.forEach(tagName => {
-          // 检查是否已被用户删除
-          if (existingDeletedDefaultTags.includes(tagName)) {
-            console.log(`🚫 [StorageManager] 跳过已删除的默认标签: ${tagName}`);
+          const normalizedTag = normalizeTag(tagName);
+
+          // 检查是否已被用户删除（检查原始名称和规范化名称）
+          if (existingDeletedDefaultTags.includes(tagName) || existingDeletedDefaultTags.includes(normalizedTag)) {
+            console.log(`🚫 [StorageManager] 跳过已删除的默认标签: ${tagName} (规范化: ${normalizedTag})`);
             return;
           }
-
-          const normalizedTag = normalizeTag(tagName);
           console.log(`🏷️ [StorageManager] 创建默认标签: ${tagName} -> ${normalizedTag}`);
           defaultTagsData[normalizedTag] = {
             id: generateId(),
@@ -134,9 +134,10 @@ export class StorageManager {
         DEFAULT_TAGS.forEach(tagName => {
           const normalizedTag = normalizeTag(tagName);
 
-          // 检查是否已被用户删除
-          if (this.cache!.deletedDefaultTags!.includes(tagName)) {
-            console.log(`🚫 [StorageManager] 跳过已删除的默认标签: ${tagName}`);
+          // 检查是否已被用户删除（检查原始名称和规范化名称）
+          const normalizedTagCheck = normalizeTag(tagName);
+          if (this.cache!.deletedDefaultTags!.includes(tagName) || this.cache!.deletedDefaultTags!.includes(normalizedTagCheck)) {
+            console.log(`🚫 [StorageManager] 跳过已删除的默认标签: ${tagName} (规范化: ${normalizedTagCheck})`);
             return;
           }
 
@@ -424,11 +425,21 @@ export class StorageManager {
       data.deletedDefaultTags = [];
     }
 
+    // 同时记录原始名称和规范化名称，确保删除记录的完整性
     if (DEFAULT_TAGS.includes(tagName as any)) {
-      console.log(`📝 [deleteTag] 记录删除的默认标签: ${tagName}`);
+      console.log(`📝 [deleteTag] 记录删除的默认标签: ${tagName} (规范化: ${normalizedTag})`);
+
+      // 记录原始标签名
       if (!data.deletedDefaultTags.includes(tagName)) {
         data.deletedDefaultTags.push(tagName);
       }
+
+      // 也记录规范化后的标签名，以防不同地方使用不同格式
+      if (!data.deletedDefaultTags.includes(normalizedTag)) {
+        data.deletedDefaultTags.push(normalizedTag);
+      }
+
+      console.log(`📝 [deleteTag] 删除记录更新: ${data.deletedDefaultTags.join(', ')}`);
     }
 
     // 从所有书签中移除该标签
