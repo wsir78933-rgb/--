@@ -14,7 +14,8 @@ export class StorageManager {
     } else {
       throw new Error('Chrome storage API is not available');
     }
-    this.initializeStorage();
+    // 不在构造函数中初始化，避免每次创建实例都重新初始化
+    // this.initializeStorage(); // 移除：这会导致标签被重新创建
     this.setupStorageListener();
   }
 
