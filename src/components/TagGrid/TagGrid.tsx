@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTags } from '@/hooks/useTags';
 import { useBookmarks } from '@/hooks/useBookmarks';
+import { StorageManager } from '@/lib/storage';
 import { Tag as TagIcon, Star, Filter, GripVertical, X, Check, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -154,41 +155,11 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
     try {
       console.log('删除标签操作:', tag);
 
-      // 获取当前存储数据
-      const data = await chrome.storage.local.get(null);
+      // 使用StorageManager的deleteTag方法
+      const storageManager = StorageManager.getInstance();
+      await storageManager.deleteTag(tag);
 
-      // 找到要删除的标签键
-      const updatedTags = { ...data.tags };
-      const tagKey = Object.keys(updatedTags).find(key =>
-        updatedTags[key].name.toLowerCase() === tag.toLowerCase()
-      );
-
-      if (tagKey) {
-        // 删除标签
-        delete updatedTags[tagKey];
-        console.log('已删除标签键:', tagKey);
-      }
-
-      // 更新所有书签，移除该标签
-      const updatedBookmarksList = (data.bookmarks || []).map((bookmark: any) => {
-        if (bookmark.tags && bookmark.tags.some((t: string) => t.toLowerCase() === tag.toLowerCase())) {
-          return {
-            ...bookmark,
-            tags: bookmark.tags.filter((t: string) => t.toLowerCase() !== tag.toLowerCase()),
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return bookmark;
-      });
-
-      // 一次性更新存储，确保数据一致性
-      await chrome.storage.local.set({
-        ...data,
-        tags: updatedTags,
-        bookmarks: updatedBookmarksList
-      });
-
-      console.log('标签删除操作完成，存储已更新');
+      console.log('标签删除操作完成');
       toast.success(`标签"${tag}"已删除`);
 
       // 如果当前选中的标签被删除，重置选中状态
@@ -204,7 +175,7 @@ export function TagGrid({ selectedTag, onSelectTag }: TagGridProps) {
 
     } catch (error) {
       console.error('删除标签失败:', error);
-      toast.error('删除标签失败');
+      toast.error(`删除标签失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   };
 

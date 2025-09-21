@@ -112,16 +112,28 @@ export class StorageManager {
         this.cache.bookmarks.forEach(bookmark => {
           if (bookmark.tags && Array.isArray(bookmark.tags)) {
             bookmark.tags.forEach(tag => {
-              tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+              // 只统计仍然存在于标签列表中的标签
+              const normalizedTag = normalizeTag(tag);
+              if (this.cache!.tags[normalizedTag]) {
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+              }
             });
           }
         });
 
-        // 更新标签计数
+        // 更新标签计数，并清理计数为0的标签
         Object.values(this.cache.tags).forEach(tag => {
           const newCount = tagCounts[tag.name] || 0;
           if (tag.count !== newCount) {
             tag.count = newCount;
+            needsUpdate = true;
+          }
+        });
+
+        // 移除计数为0的标签
+        Object.keys(this.cache.tags).forEach(tagKey => {
+          if (this.cache!.tags[tagKey].count === 0) {
+            delete this.cache!.tags[tagKey];
             needsUpdate = true;
           }
         });
@@ -238,6 +250,51 @@ export class StorageManager {
     return data.tags || {};
   }
 
+  public async createTag(tagName: string): Promise<Tag> {
+    const data = await this.getData();
+    const normalizedTag = normalizeTag(tagName);
+
+    if (data.tags[normalizedTag]) {
+      throw new Error('Tag already exists');
+    }
+
+    const newTag: Tag = {
+      id: generateId(),
+      name: tagName,
+      count: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    data.tags[normalizedTag] = newTag;
+    await this.storage.set(data);
+    this.cache = data;
+
+    return newTag;
+  }
+
+  public async deleteTag(tagName: string): Promise<void> {
+    const data = await this.getData();
+    const normalizedTag = normalizeTag(tagName);
+
+    if (!data.tags[normalizedTag]) {
+      throw new Error('Tag not found');
+    }
+
+    // 删除标签
+    delete data.tags[normalizedTag];
+
+    // 从所有书签中移除该标签
+    data.bookmarks.forEach(bookmark => {
+      if (bookmark.tags && bookmark.tags.includes(tagName)) {
+        bookmark.tags = bookmark.tags.filter(t => t !== tagName);
+        bookmark.updatedAt = new Date().toISOString();
+      }
+    });
+
+    await this.storage.set(data);
+    this.cache = data;
+  }
+
   public async addBookmark(bookmark: Omit<Bookmark, 'id' | 'createdAt'>): Promise<Bookmark> {
     const data = await this.getData();
     const newBookmark: Bookmark = {
@@ -248,10 +305,11 @@ export class StorageManager {
 
     data.bookmarks.push(newBookmark);
 
-    // Update tag counts
+    // Update tag counts - 为新标签创建标签数据
     for (const tagName of bookmark.tags) {
       const normalizedTag = normalizeTag(tagName);
       if (!data.tags[normalizedTag]) {
+        // 只有在用户主动添加书签时才创建新标签
         data.tags[normalizedTag] = {
           id: generateId(),
           name: tagName,
@@ -295,10 +353,11 @@ export class StorageManager {
         }
       }
 
-      // Increase count for new tags
+      // Increase count for new tags - 为新标签创建标签数据
       for (const tagName of updates.tags) {
         const normalizedTag = normalizeTag(tagName);
         if (!data.tags[normalizedTag]) {
+          // 只有在用户主动编辑书签时才创建新标签
           data.tags[normalizedTag] = {
             id: generateId(),
             name: tagName,
