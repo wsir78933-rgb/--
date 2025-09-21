@@ -29,7 +29,17 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: 'src/popup/index.html',
-        options: 'src/options/index.html'
+        options: 'src/options/index.html',
+        'service-worker': 'src/background/service-worker-simple.ts'
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          // Background script should be at root level for proper imports
+          if (chunkInfo.name === 'service-worker') {
+            return '[name].js';
+          }
+          return 'assets/[name]-[hash].js';
+        }
       }
     }
   }

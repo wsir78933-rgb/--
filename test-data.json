@@ -1,0 +1,29 @@
+[
+  {
+    "id": "test-1",
+    "url": "https://github.com/microsoft/vscode",
+    "title": "Visual Studio Code",
+    "note": "一个功能强大的代码编辑器",
+    "tags": ["编程", "工具", "微软"],
+    "createdAt": "2024-01-15T10:00:00.000Z",
+    "favicon": "https://github.com/favicon.ico"
+  },
+  {
+    "id": "test-2",
+    "url": "https://react.dev",
+    "title": "React",
+    "note": "用于构建用户界面的JavaScript库",
+    "tags": ["前端", "JavaScript", "框架"],
+    "createdAt": "2024-01-16T11:30:00.000Z",
+    "favicon": "https://react.dev/favicon.ico"
+  },
+  {
+    "id": "test-3",
+    "url": "https://www.typescriptlang.org",
+    "title": "TypeScript",
+    "note": "JavaScript的超集，添加了静态类型检查",
+    "tags": ["编程", "TypeScript", "JavaScript"],
+    "createdAt": "2024-01-17T14:20:00.000Z",
+    "favicon": "https://www.typescriptlang.org/favicon-32x32.png"
+  }
+]

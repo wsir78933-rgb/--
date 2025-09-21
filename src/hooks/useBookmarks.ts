@@ -91,6 +91,23 @@ export function useBookmarks() {
     }
   }, [storageManager]);
 
+  const addBookmarks = useCallback(async (bookmarksToAdd: Bookmark[]) => {
+    if (!storageManager) {
+      throw new Error('Storage manager not available');
+    }
+
+    try {
+      // 批量添加书签
+      for (const bookmark of bookmarksToAdd) {
+        await storageManager.addBookmark(bookmark);
+      }
+      // Bookmarks will be updated via the storage listener
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add bookmarks');
+      throw err;
+    }
+  }, [storageManager]);
+
   const searchBookmarks = useCallback(async (query: string, tags?: string[]) => {
     if (!storageManager) {
       setError('Storage manager not available');
@@ -111,6 +128,7 @@ export function useBookmarks() {
     loading,
     error,
     addBookmark,
+    addBookmarks,
     updateBookmark,
     deleteBookmark,
     searchBookmarks,

@@ -2,19 +2,22 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { BookmarkList } from '@/components/BookmarkList/BookmarkList';
 import { TagGrid } from '@/components/TagGrid/TagGrid';
 import { ExportModal } from '@/components/ExportModal/ExportModal';
+import { ImportModal } from '@/components/ImportModal/ImportModal';
 import { Analytics } from '@/components/Analytics/Analytics';
 import { BookmarkSearch } from '@/components/BookmarkSearch/BookmarkSearch';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useTags } from '@/hooks/useTags';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { Download, Moon, Sun, BarChart3 } from 'lucide-react';
+import { Download, Upload, Moon, Sun, BarChart3 } from 'lucide-react';
 import { Bookmark } from '@/types';
+import { ImportResult } from '@/lib/import';
 
 type ViewMode = 'dashboard' | 'analytics';
 
 export function OptionsApp() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
 
@@ -117,6 +120,13 @@ export function OptionsApp() {
     setSelectedTag(tag);
   }, []);
 
+  // 处理导入成功
+  const handleImportSuccess = useCallback((result: ImportResult) => {
+    console.log('Import success:', result);
+    // 这里可以添加更多处理逻辑，比如显示成功消息、刷新数据等
+    setShowImportModal(false);
+  }, []);
+
   // 如果是分析模式，直接显示分析页面
   if (viewMode === 'analytics') {
     return <Analytics onBack={() => setViewMode('dashboard')} />;
@@ -137,6 +147,13 @@ export function OptionsApp() {
               >
                 <BarChart3 className="mr-2" size={16} />
                 数据分析
+              </button>
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-200 dark:border-gray-700 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <Upload className="mr-2" size={16} />
+                导入数据
               </button>
               <button
                 onClick={() => setShowExportModal(true)}
@@ -269,6 +286,13 @@ export function OptionsApp() {
 
       {showExportModal && (
         <ExportModal onClose={() => setShowExportModal(false)} />
+      )}
+
+      {showImportModal && (
+        <ImportModal
+          onClose={() => setShowImportModal(false)}
+          onImportSuccess={handleImportSuccess}
+        />
       )}
     </div>
   );
